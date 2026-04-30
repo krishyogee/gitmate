@@ -1,0 +1,8 @@
+/gitmate
+/bin/
+*.test
+*.out
+.idea/
+.vscode/
+.DS_Store
+.gitmate/
