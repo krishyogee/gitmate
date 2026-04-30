@@ -92,10 +92,17 @@ func (t *TerminalUI) renderCard(w io.Writer, card Card) {
 
 func (t *TerminalUI) padLine(w io.Writer, line string) {
 	width := 47
-	if len(line) > width-2 {
-		line = line[:width-3] + "…"
+	runes := []rune(line)
+	max := width - 2
+	if len(runes) > max {
+		runes = append(runes[:max-1], '…')
 	}
-	fmt.Fprintf(w, "│ %s%s│\n", line, strings.Repeat(" ", width-len(line)-1))
+	line = string(runes)
+	pad := width - len(runes) - 1
+	if pad < 0 {
+		pad = 0
+	}
+	fmt.Fprintf(w, "│ %s%s│\n", line, strings.Repeat(" ", pad))
 }
 
 func (t *TerminalUI) renderPreview(w io.Writer, card Card) {

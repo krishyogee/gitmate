@@ -77,7 +77,7 @@ func Execute() {
 	rootCmd.PersistentFlags().BoolVar(&flagNoAI, "no-ai", false, "disable AI calls (fall back to heuristics)")
 	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false, "verbose output")
 
-	rootCmd.AddCommand(shipCmd, syncCmd, checkCmd, resolveCmd, statusCmd, explainCmd, metricsCmd, configCmd, versionCmd)
+	rootCmd.AddCommand(shipCmd, syncCmd, checkCmd, resolveCmd, statusCmd, explainCmd, pushCmd, metricsCmd, configCmd, versionCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
