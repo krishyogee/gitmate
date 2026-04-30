@@ -85,10 +85,20 @@ func Execute() {
 	}
 }
 
+var (
+	buildVersion = "dev"
+	buildCommit  = "none"
+	buildDate    = "unknown"
+)
+
+func SetVersion(v, c, d string) {
+	buildVersion, buildCommit, buildDate = v, c, d
+}
+
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print gitmate version",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("gitmate 0.1.0")
+		fmt.Printf("gitmate %s (commit %s, built %s)\n", buildVersion, buildCommit, buildDate)
 	},
 }

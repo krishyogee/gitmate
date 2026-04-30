@@ -1,0 +1,102 @@
+version: 2
+
+project_name: gitmate
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: gitmate
+    main: ./main.go
+    binary: gitmate
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - id: default
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'merge conflict'
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Refactor
+      regexp: '^.*?refactor(\(.+\))??!?:.+$'
+      order: 2
+    - title: Other
+      order: 999
+
+release:
+  github:
+    owner: krishyogee
+    name: gitmate
+  draft: false
+  prerelease: auto
+  name_template: "gitmate {{ .Version }}"
+  header: |
+    ## gitmate {{ .Version }}
+
+    Multi-agent CLI for Git workflows with approval gates.
+
+    ### Install
+
+    ```sh
+    go install github.com/krishyogee/gitmate@{{ .Tag }}
+    ```
+
+    Or download a pre-built binary below and place it on your `PATH`.
+  footer: |
+    ---
+    **Configure**: `export ANTHROPIC_API_KEY=...` (or `OPENAI_API_KEY` / `GROQ_API_KEY`)
+
+# Uncomment after creating the krishyogee/homebrew-tap repo:
+# brews:
+#   - repository:
+#       owner: krishyogee
+#       name: homebrew-tap
+#     homepage: https://github.com/krishyogee/gitmate
+#     description: Multi-agent AI CLI for Git workflows
+#     license: MIT
+#     install: |
+#       bin.install "gitmate"
+#     test: |
+#       system "#{bin}/gitmate", "version"
