@@ -18,41 +18,61 @@ var initCmd = &cobra.Command{
 	Short: "Interactive first-run setup (provider, API key, shell rc)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("─── gitmate init ───")
+		fmt.Println("Interactive setup. Press Ctrl+C anytime to abort.")
+		fmt.Println()
 		fmt.Println("This will:")
 		fmt.Println("  1. write ~/.gitmate/config.json")
 		fmt.Println("  2. append `export <PROVIDER>_API_KEY=...` to your shell rc")
-		fmt.Println("  3. verify the key by running `gitmate version`")
 		fmt.Println()
 
 		r := bufio.NewReader(os.Stdin)
 
-		fmt.Print("Provider [anthropic/openai/groq] (default anthropic): ")
-		providerLine, _ := r.ReadString('\n')
-		provider := strings.TrimSpace(strings.ToLower(providerLine))
-		if provider == "" {
-			provider = "anthropic"
-		}
-		envVar := ""
-		switch provider {
-		case "anthropic":
-			envVar = "ANTHROPIC_API_KEY"
-		case "openai":
-			envVar = "OPENAI_API_KEY"
-		case "groq":
-			envVar = "GROQ_API_KEY"
-		default:
-			return fmt.Errorf("unknown provider %q", provider)
+		var provider, envVar string
+		for {
+			fmt.Print("Provider [anthropic / openai / groq] (default: anthropic): ")
+			line, err := r.ReadString('\n')
+			if err != nil {
+				return fmt.Errorf("read provider: %w", err)
+			}
+			provider = strings.TrimSpace(strings.ToLower(line))
+			if provider == "" {
+				provider = "anthropic"
+			}
+			switch provider {
+			case "anthropic":
+				envVar = "ANTHROPIC_API_KEY"
+			case "openai":
+				envVar = "OPENAI_API_KEY"
+			case "groq":
+				envVar = "GROQ_API_KEY"
+			default:
+				fmt.Printf("  ✗ unknown provider %q. Type one of: anthropic, openai, groq.\n\n", provider)
+				continue
+			}
+			break
 		}
 
-		fmt.Printf("\nAPI key (%s): ", envVar)
-		keyLine, _ := r.ReadString('\n')
-		apiKey := strings.TrimSpace(keyLine)
-		if apiKey == "" {
-			return fmt.Errorf("API key is required")
+		var apiKey string
+		for {
+			fmt.Printf("\nAPI key for %s (paste key, then Enter): ", envVar)
+			line, err := r.ReadString('\n')
+			if err != nil {
+				return fmt.Errorf("read api key: %w", err)
+			}
+			apiKey = strings.TrimSpace(line)
+			if apiKey == "" {
+				fmt.Println("  ✗ key is empty. Paste your API key, or Ctrl+C to cancel.")
+				continue
+			}
+			if strings.Contains(apiKey, " ") || strings.HasPrefix(apiKey, "gitmate ") {
+				fmt.Printf("  ✗ that doesn't look like a key (%q). Try again.\n", apiKey)
+				continue
+			}
+			break
 		}
 
 		shellRC := detectShellRC()
-		fmt.Printf("\nShell rc file (default %s): ", shellRC)
+		fmt.Printf("\nShell rc file (default: %s) [Enter to accept]: ", shellRC)
 		rcLine, _ := r.ReadString('\n')
 		if v := strings.TrimSpace(rcLine); v != "" {
 			shellRC = expandHome(v)
