@@ -68,6 +68,36 @@ var rootCmd = &cobra.Command{
 	Short: "gitmate — AI agent for Git workflows with approval gates",
 	Long: `gitmate is a multi-agent CLI that wraps Git with an evaluator-driven AI layer.
 Less Git thinking, more shipping — with approvals where it matters.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if isFirstRun() {
+			printFirstRunBanner()
+		}
+		_ = cmd.Help()
+	},
+}
+
+func isFirstRun() bool {
+	if _, err := os.Stat(config.GlobalPath()); err == nil {
+		return false
+	}
+	for _, k := range []string{"ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY"} {
+		if os.Getenv(k) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+func printFirstRunBanner() {
+	fmt.Println("─── first-run detected ───")
+	fmt.Println("No config + no API key in env. Run interactive setup:")
+	fmt.Println()
+	fmt.Println("  gitmate init")
+	fmt.Println()
+	fmt.Println("Or skip setup and export a key directly:")
+	fmt.Println("  export ANTHROPIC_API_KEY=...   # or OPENAI_API_KEY / GROQ_API_KEY")
+	fmt.Println("──────────────────────────")
+	fmt.Println()
 }
 
 func Execute() {
@@ -77,7 +107,7 @@ func Execute() {
 	rootCmd.PersistentFlags().BoolVar(&flagNoAI, "no-ai", false, "disable AI calls (fall back to heuristics)")
 	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false, "verbose output")
 
-	rootCmd.AddCommand(shipCmd, syncCmd, checkCmd, resolveCmd, statusCmd, explainCmd, pushCmd, metricsCmd, configCmd, versionCmd)
+	rootCmd.AddCommand(initCmd, shipCmd, syncCmd, checkCmd, resolveCmd, statusCmd, explainCmd, pushCmd, metricsCmd, configCmd, versionCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
