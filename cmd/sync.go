@@ -67,7 +67,10 @@ var syncCmd = &cobra.Command{
 
 		// Step 1: integrate origin/<current-branch> if it exists and is behind
 		if remoteRef := "origin/" + branch; remoteExists(ctx, remoteRef) {
-			ahead, behind, _ := compareRefs(ctx, "HEAD", remoteRef)
+			ahead, behind, err := compareRefs(ctx, "HEAD", remoteRef)
+			if err != nil {
+				return fmt.Errorf("compare origin/%s: %w", branch, err)
+			}
 			stream.Info(fmt.Sprintf("origin/%s — ahead=%d behind=%d", branch, ahead, behind))
 			if behind > 0 {
 				if err := integrate(ctx, app, remoteRef, fmt.Sprintf("origin/%s", branch)); err != nil {
@@ -86,7 +89,13 @@ var syncCmd = &cobra.Command{
 			stream.Info("on base branch — skipping base integration")
 			return nil
 		}
-		ahead, behind, _ := compareRefs(ctx, "HEAD", base)
+		if !branchExists(ctx, base) {
+			return fmt.Errorf("base branch %q not found locally or on origin (try `git fetch` or `--base <name>`)", base)
+		}
+		ahead, behind, err := compareRefs(ctx, "HEAD", base)
+		if err != nil {
+			return fmt.Errorf("compare %s: %w", base, err)
+		}
 		stream.Info(fmt.Sprintf("%s — ahead=%d behind=%d", base, ahead, behind))
 		if behind == 0 {
 			stream.Done("already up-to-date with base")
@@ -103,6 +112,16 @@ var syncCmd = &cobra.Command{
 func remoteExists(ctx context.Context, ref string) bool {
 	_, err := tools.RunGit(ctx, "rev-parse", "--verify", ref)
 	return err == nil
+}
+
+func branchExists(ctx context.Context, name string) bool {
+	if _, err := tools.RunGit(ctx, "rev-parse", "--verify", name); err == nil {
+		return true
+	}
+	if _, err := tools.RunGit(ctx, "rev-parse", "--verify", "origin/"+name); err == nil {
+		return true
+	}
+	return false
 }
 
 func compareRefs(ctx context.Context, ref, target string) (ahead, behind int, err error) {

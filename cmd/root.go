@@ -271,6 +271,8 @@ func Execute() {
 
 	rootCmd.AddCommand(initCmd, shipCmd, syncCmd, checkCmd, resolveCmd, statusCmd, explainCmd, pushCmd, metricsCmd, configCmd, versionCmd)
 
+	silenceUsageOnError(rootCmd)
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
@@ -293,4 +295,13 @@ var versionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("gitmate %s (commit %s, built %s)\n", buildVersion, buildCommit, buildDate)
 	},
+}
+
+// silenceUsageOnError sets SilenceUsage on the command tree so RunE errors
+// don't dump the cobra help block; cobra still prints the error message.
+func silenceUsageOnError(c *cobra.Command) {
+	c.SilenceUsage = true
+	for _, child := range c.Commands() {
+		silenceUsageOnError(child)
+	}
 }

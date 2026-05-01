@@ -33,7 +33,19 @@ var statusCmd = &cobra.Command{
 
 		st, _ := (tools.GitStatusTool{}).Execute(ctx, "")
 		fmt.Println("\n─── working tree ───")
-		fmt.Println(st)
+		hasFileLine := false
+		for _, line := range strings.Split(st, "\n") {
+			line = strings.TrimRight(line, "\r")
+			if strings.HasPrefix(strings.TrimSpace(line), "##") || strings.TrimSpace(line) == "" {
+				continue
+			}
+			hasFileLine = true
+			break
+		}
+		fmt.Println(strings.TrimRight(st, "\n"))
+		if !hasFileLine {
+			fmt.Println("  ✓ clean")
+		}
 
 		ours, _ := changedFiles(ctx, "HEAD", base)
 		theirs, _ := changedFiles(ctx, base, base+"~10")

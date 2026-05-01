@@ -152,13 +152,30 @@ func expandHome(p string) string {
 }
 
 func appendIfMissing(path, line string) error {
-	data, _ := os.ReadFile(path)
-	if strings.Contains(string(data), line) {
-		return nil
-	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
+	prefix := line
+	if eq := strings.Index(line, "="); eq > 0 {
+		prefix = line[:eq+1]
+	}
+
+	data, _ := os.ReadFile(path)
+	lines := strings.Split(string(data), "\n")
+	replaced := false
+	for i, l := range lines {
+		trim := strings.TrimSpace(l)
+		if strings.HasPrefix(trim, prefix) {
+			lines[i] = line
+			replaced = true
+		}
+	}
+
+	if replaced {
+		out := strings.Join(lines, "\n")
+		return os.WriteFile(path, []byte(out), 0644)
+	}
+
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -167,8 +184,11 @@ func appendIfMissing(path, line string) error {
 	if len(data) > 0 && !strings.HasSuffix(string(data), "\n") {
 		fmt.Fprintln(f)
 	}
-	fmt.Fprintln(f, "")
-	fmt.Fprintln(f, "# gitmate")
+	hasMarker := strings.Contains(string(data), "# gitmate\n")
+	if !hasMarker {
+		fmt.Fprintln(f, "")
+		fmt.Fprintln(f, "# gitmate")
+	}
 	fmt.Fprintln(f, line)
 	return nil
 }

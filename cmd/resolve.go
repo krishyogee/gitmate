@@ -147,8 +147,9 @@ var resolveCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Println("\nNext: continue your rebase/merge manually:")
-		fmt.Println("  git rebase --continue   # or git merge --continue")
+		fmt.Printf("\n%s already staged. Next:\n", file)
+		fmt.Println("  gitmate resolve <file>     # repeat for any other conflicted file")
+		fmt.Println("  git rebase --continue      # or git merge --continue")
 		return nil
 	},
 }

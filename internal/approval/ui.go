@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/krishyogee/gitmate/internal/tui"
 )
@@ -21,9 +22,23 @@ type TerminalUI struct {
 	Out io.Writer
 }
 
+var (
+	stdinReaderOnce sync.Once
+	stdinReader     *bufio.Reader
+)
+
+func sharedStdinReader() *bufio.Reader {
+	stdinReaderOnce.Do(func() {
+		stdinReader = bufio.NewReader(os.Stdin)
+	})
+	return stdinReader
+}
+
+func SharedStdin() *bufio.Reader { return sharedStdinReader() }
+
 func (t *TerminalUI) reader() *bufio.Reader {
 	if t.In == nil {
-		return bufio.NewReader(os.Stdin)
+		return sharedStdinReader()
 	}
 	return bufio.NewReader(t.In)
 }

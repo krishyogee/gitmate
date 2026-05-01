@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -130,7 +128,7 @@ var shipCmd = &cobra.Command{
 		}
 
 		fmt.Printf("\n%s ", tui.Hint.Render("Create PR? (y/N)"))
-		r := bufio.NewReader(os.Stdin)
+		r := approval.SharedStdin()
 		ans, _ := r.ReadString('\n')
 		if strings.TrimSpace(strings.ToLower(ans)) != "y" {
 			return nil

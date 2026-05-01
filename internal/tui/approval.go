@@ -28,6 +28,16 @@ func RenderApprovalCard(v ApprovalView) string {
 		riskStyle = riskStyle.Foreground(ColorErr)
 	}
 
+	w := Width()
+	cardW := w - 4
+	if cardW < 50 {
+		cardW = 50
+	}
+	if cardW > 100 {
+		cardW = 100
+	}
+	descMax := cardW - 14
+
 	header := CardTitle.Render("gitmate · action required")
 
 	rows := []string{
@@ -35,16 +45,16 @@ func RenderApprovalCard(v ApprovalView) string {
 		fmt.Sprintf("%s    %s", KV.Render("risk"), riskStyle.Render(v.Risk)),
 	}
 	if v.Description != "" {
-		rows = append(rows, fmt.Sprintf("%s     %s", KV.Render("why"), KVValue.Render(truncate(v.Description, 50))))
+		rows = append(rows, fmt.Sprintf("%s     %s", KV.Render("why"), KVValue.Render(truncate(v.Description, descMax))))
 	}
 
 	body := strings.Join(rows, "\n")
-	card := Card.Render(header + "\n" + body)
+	cardStyled := Card.Width(cardW).Render(header + "\n" + body)
 
-	out := card
+	out := cardStyled
 	if v.Input != "" {
 		out += "\n" + Subtle.Render("─── input ───")
-		out += "\n" + indent(truncate(v.Input, 800), "  ")
+		out += "\n" + indent(truncate(v.Input, 2000), "  ")
 		out += "\n" + Subtle.Render("─────────────")
 	}
 	return out

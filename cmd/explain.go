@@ -11,6 +11,8 @@ import (
 	"github.com/krishyogee/gitmate/internal/tools"
 )
 
+var explainStaged bool
+
 var explainCmd = &cobra.Command{
 	Use:   "explain [file]",
 	Short: "Explain a diff in plain language",
@@ -26,22 +28,31 @@ var explainCmd = &cobra.Command{
 				strings.ToUpper(app.Cfg.Provider))
 		}
 
-		var diff string
-		if len(args) == 1 {
-			out, err := tools.RunGit(ctx, "diff", "HEAD", "--", args[0])
-			if err != nil {
-				return err
-			}
-			diff = out
+		gitArgs := []string{"diff"}
+		if explainStaged {
+			gitArgs = append(gitArgs, "--cached")
 		} else {
-			out, err := tools.RunGit(ctx, "diff", "HEAD")
-			if err != nil {
-				return err
-			}
-			diff = out
+			gitArgs = append(gitArgs, "HEAD")
 		}
-		if diff == "" {
-			fmt.Println("(no diff)")
+		if len(args) == 1 {
+			gitArgs = append(gitArgs, "--", args[0])
+		}
+		diff, err := tools.RunGit(ctx, gitArgs...)
+		if err != nil {
+			return err
+		}
+
+		if strings.TrimSpace(diff) == "" {
+			source := "working tree vs HEAD"
+			if explainStaged {
+				source = "staged changes (index vs HEAD)"
+			}
+			fmt.Printf("no diff to explain (%s).\n\nTry one of:\n", source)
+			if !explainStaged {
+				fmt.Println("  gitmate explain --staged       # explain staged changes (pre-commit)")
+			}
+			fmt.Println("  gitmate explain <file>         # narrow to one file")
+			fmt.Println("  git add <file> && gitmate explain --staged")
 			return nil
 		}
 
@@ -55,4 +66,8 @@ var explainCmd = &cobra.Command{
 		fmt.Println(out)
 		return nil
 	},
+}
+
+func init() {
+	explainCmd.Flags().BoolVar(&explainStaged, "staged", false, "explain staged changes (git diff --cached)")
 }
