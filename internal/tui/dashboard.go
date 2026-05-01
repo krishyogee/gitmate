@@ -39,6 +39,8 @@ var actions = []Action{
 	{"m", "metrics", "metrics", "approval rate + latency"},
 	{"i", "init", "init", "configure provider + key"},
 	{"f", "config", "config", "show effective config"},
+	{"h", "help", "help", "full command reference + cheat sheet"},
+	{"v", "version", "version", "show gitmate version + build info"},
 }
 
 type dashboardModel struct {
