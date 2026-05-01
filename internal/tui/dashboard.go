@@ -122,26 +122,18 @@ func (m dashboardModel) View() string {
 	}
 
 	var menu strings.Builder
-	cols := 2
-	rows := (len(actions) + cols - 1) / cols
-	for r := 0; r < rows; r++ {
-		for c := 0; c < cols; c++ {
-			i := c*rows + r
-			if i >= len(actions) {
-				continue
-			}
-			a := actions[i]
-			key := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render("[" + a.Key + "]")
-			cell := fmt.Sprintf("%s %-15s %s", key, a.Title, Subtle.Render(a.Desc))
-			cell = padToWidth(cell, 38)
-			if i == m.cursor {
-				cell = MenuActive.Render("▸ " + cell)
-			} else {
-				cell = MenuItem.Render("  " + cell)
-			}
-			menu.WriteString(cell)
+	for i, a := range actions {
+		key := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render("[" + a.Key + "]")
+		row := fmt.Sprintf("%s  %-10s  %s", key, a.Title, Subtle.Render(a.Desc))
+		if i == m.cursor {
+			row = MenuActive.Render("▸ " + row)
+		} else {
+			row = MenuItem.Render("  " + row)
 		}
-		menu.WriteString("\n")
+		menu.WriteString(row)
+		if i < len(actions)-1 {
+			menu.WriteString("\n")
+		}
 	}
 
 	hint := Hint.Render("↑↓/jk navigate · enter select · letter shortcut · q quit")
@@ -149,15 +141,9 @@ func (m dashboardModel) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		statusLine+keyHint,
-		strings.TrimRight(menu.String(), "\n"),
+		"",
+		menu.String(),
+		"",
 		hint,
 	)
-}
-
-func padToWidth(s string, w int) string {
-	visible := lipgloss.Width(s)
-	if visible >= w {
-		return s
-	}
-	return s + strings.Repeat(" ", w-visible)
 }
