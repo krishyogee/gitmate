@@ -171,6 +171,36 @@ Priority (highest first):
 
 `gitmate config` prints the effective merged config + all paths.
 
+### Edit config without hand-editing JSON
+
+```sh
+gitmate config set <key> <value>            # writes repo config (default)
+gitmate config set <key> <value> --global   # writes ~/.gitmate/config.json
+gitmate config get <key>                    # effective value (after layering)
+gitmate config unset <key>                  # remove from file
+```
+
+**Examples:**
+
+```sh
+# change base branch for this repo only
+gitmate config set defaultBase develop
+
+# switch to merge globally
+gitmate config set syncMode merge --global
+
+# nested keys via dot
+gitmate config set models.drafting gpt-4o-mini
+gitmate config set guardrails.maxLoopSteps 8
+
+# values auto-parsed: bools, ints, floats, JSON arrays/objects
+gitmate config set autoStash false
+gitmate config set guardrails.minConfidenceToApply 0.7
+gitmate config set guardrails.highRiskPatterns '["auth/","secrets/"]'
+```
+
+`gitmate config set` creates `<repo>/.gitmate/config.json` if missing.
+
 ---
 
 ## Commands
@@ -188,6 +218,7 @@ Priority (highest first):
 | `gitmate explain [file]` | Plain-language explanation of a diff |
 | `gitmate metrics` | Approval rate, edit rate, latency, score distribution |
 | `gitmate config` | Show effective config + paths |
+| `gitmate config set/get/unset` | Edit repo or global config (`--global`) without hand-editing JSON |
 | `gitmate version` | Print version, commit, build date |
 
 Global flags: `--auto` (skip approvals), `--dry-run`, `--base`, `--no-ai`, `-v`.

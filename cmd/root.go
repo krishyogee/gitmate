@@ -70,7 +70,34 @@ var rootCmd = &cobra.Command{
 	Use:   "gitmate",
 	Short: "gitmate — AI agent for Git workflows with approval gates",
 	Long: `gitmate is a multi-agent CLI that wraps Git with an evaluator-driven AI layer.
-Less Git thinking, more shipping — with approvals where it matters.`,
+Less Git thinking, more shipping — with approvals where it matters.
+
+QUICK START
+  gitmate                       open the TUI dashboard (TTY only)
+  gitmate init                  set up provider + API key (one-time)
+  gitmate ship                  AI commit message + commit + optional PR
+  gitmate sync                  fetch + integrate origin/<branch> + base
+  gitmate push                  push current branch (with approval)
+  gitmate resolve <file>        explain + resolve conflicts block-by-block
+  gitmate check                 predict merge pain (overlap + hotspots)
+  gitmate explain [file]        plain-language diff summary
+
+CONFIG (no hand-editing JSON)
+  gitmate config                show effective config + paths
+  gitmate config set defaultBase develop          # repo-local
+  gitmate config set syncMode merge --global      # ~/.gitmate/config.json
+  gitmate config get models.drafting              # effective value
+  gitmate config unset syncMode                   # remove from file
+
+OBSERVABILITY
+  gitmate metrics               approval rate, edit rate, latency, scores
+  ~/.gitmate/ai-log.jsonl       every AI call + approval logged
+
+PROVIDERS (env or credentials.json — env wins)
+  ANTHROPIC_API_KEY · OPENAI_API_KEY · GROQ_API_KEY
+
+DOCS
+  https://github.com/krishyogee/gitmate`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if isFirstRun() {
 			printFirstRunBanner()
