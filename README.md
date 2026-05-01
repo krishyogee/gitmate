@@ -1,31 +1,30 @@
 # gitmate
 
-Multi-agent AI CLI for Git workflows with approval gates and a Bubble Tea TUI.
-
-> Less Git thinking, more shipping — with approvals where it matters.
+> Your Git workflow, with a brain. And a conscience.
 
 [![release](https://img.shields.io/github/v/release/krishyogee/gitmate)](https://github.com/krishyogee/gitmate/releases)
 [![ci](https://github.com/krishyogee/gitmate/actions/workflows/ci.yml/badge.svg)](https://github.com/krishyogee/gitmate/actions)
 [![license](https://img.shields.io/github/license/krishyogee/gitmate)](LICENSE)
 
----
+Most "AI for Git" tools are commit-message generators in a trenchcoat. gitmate isn't.
 
-## What it is
+Under the hood it's a small swarm of agents running a ReAct loop (think → act → observe → refine), with an evaluator that scores every output, a memory layer that picks up on your style, and a permission gate that refuses to touch your filesystem without a green light. On top sits a Bubble Tea TUI so you can actually watch the thing work instead of staring at a blinking cursor.
 
-gitmate is **not** a Git wrapper or a chatbot. It is a multi-agent system where:
+You stay in charge. The agent does the typing.
 
-- An orchestrator runs a ReAct loop (think → act → observe → refine)
-- Sub-agents handle commits, PRs, conflict resolution, risk analysis
-- A memory layer learns user and repo patterns across sessions
-- An evaluator validates every AI output before it touches the filesystem
-- A permission system gates every consequential action (READ / ADVISE / PROPOSE / EXECUTE)
-- A Bubble Tea + Lip Gloss TUI gives you a live dashboard, streamed agent steps, and rich approval cards
+## What it actually does
 
----
+Three things, well:
 
-## CLI snapshots
+1. **Ships code.** `gitmate ship` reads your diff, drafts a commit message, scores it, refines if weak, asks before committing, optionally opens a PR.
+2. **Resolves merge hell.** `gitmate resolve <file>` walks each conflict block, explains what each side was trying to do, proposes a patch with a confidence score, and waits for you.
+3. **Predicts pain.** `gitmate check` scans hotspots and overlap zones with main so you know what's about to explode before it does.
 
-### Dashboard (bare `gitmate`)
+Plus a TUI dashboard if you'd rather click than type.
+
+## A taste
+
+### `gitmate` (bare, opens dashboard)
 
 ```
 gitmate 0.2.3
@@ -44,9 +43,7 @@ branch feature-payments (↑3 ↓1)   base main   risk MEDIUM   overlap 2
 ↑↓/jk navigate · enter select · letter shortcut · q quit
 ```
 
-Pick a letter or `enter` → spawns the matching command in a fresh process with full stdio.
-
-### Live agent stream (`gitmate ship`)
+### `gitmate ship`
 
 ```
 ⠼ drafting commit message
@@ -73,9 +70,7 @@ Pick a letter or `enter` → spawns the matching command in a fresh process with
 [main 97f57d7] feat(tui): add Bubble Tea dashboard + live stream
 ```
 
-Spinner runs while AI is thinking. Final icon (`✓` / `✗` / `·`) marks each step.
-
-### Conflict resolver (`gitmate resolve src/payment.go`)
+### `gitmate resolve src/payment.go`
 
 ```
 found 1 conflict block in src/payment.go
@@ -102,45 +97,39 @@ risk:           Method signatures changed. Run tests before continuing.
 ╰────────────────────────────────────────────────╯
 ```
 
----
-
 ## Install
 
-### Homebrew (macOS / Linux)
+**Homebrew** (macOS / Linux):
 
 ```sh
 brew install krishyogee/tap/gitmate
 ```
 
-### `go install`
+**Go:**
 
 ```sh
 go install github.com/krishyogee/gitmate@latest
 ```
 
-### Pre-built binary
-
-Download from [Releases](https://github.com/krishyogee/gitmate/releases) and put on `PATH`.
-
----
+**Pre-built binary:** grab one from [Releases](https://github.com/krishyogee/gitmate/releases) and drop it on your `PATH`.
 
 ## Configure
 
-### Interactive setup (recommended)
+The fast path:
 
 ```sh
 gitmate init
 ```
 
-Prompts for provider (anthropic / openai / groq), API key, shell rc. Writes:
+Walks you through provider (anthropic / openai / groq), API key, and which shell rc to update. Writes:
 
-- `~/.gitmate/config.json` — provider + model selection
-- `~/.gitmate/credentials.json` — API key (mode `0600`, persisted across shells)
-- `~/.zshrc` (or detected rc) — `export <PROVIDER>_API_KEY=...` as fallback
+- `~/.gitmate/config.json` for provider + model
+- `~/.gitmate/credentials.json` for the API key (mode `0600`, survives shell restarts)
+- An `export <PROVIDER>_API_KEY=...` line in your rc as a fallback
 
-Persistent — no `source ~/.zshrc` needed.
+No `source` needed. It just works in new shells.
 
-### Manual
+Prefer to set things by hand? Set the env vars yourself:
 
 ```sh
 export ANTHROPIC_API_KEY=...   # primary (default)
@@ -148,7 +137,7 @@ export OPENAI_API_KEY=...      # fallback
 export GROQ_API_KEY=...        # fallback
 ```
 
-### Env overrides
+### Knobs
 
 | Var | Purpose |
 |-----|---------|
@@ -162,16 +151,17 @@ export GROQ_API_KEY=...        # fallback
 
 ### Config layering
 
-Priority (highest first):
+Highest wins:
+
 1. CLI flags (`--auto`, `--dry-run`, `--base`)
 2. Env vars (`GITMATE_*`)
 3. Repo-local: `<repo>/.gitmate/config.json`
 4. Global: `~/.gitmate/config.json`
 5. Defaults
 
-`gitmate config` prints the effective merged config + all paths.
+`gitmate config` prints the effective merged config and where each value came from.
 
-### Edit config without hand-editing JSON
+### Editing config without opening a JSON file like an animal
 
 ```sh
 gitmate config set <key> <value>            # writes repo config (default)
@@ -179,8 +169,6 @@ gitmate config set <key> <value> --global   # writes ~/.gitmate/config.json
 gitmate config get <key>                    # effective value (after layering)
 gitmate config unset <key>                  # remove from file
 ```
-
-**Examples:**
 
 ```sh
 # change base branch for this repo only
@@ -199,9 +187,7 @@ gitmate config set guardrails.minConfidenceToApply 0.7
 gitmate config set guardrails.highRiskPatterns '["auth/","secrets/"]'
 ```
 
-`gitmate config set` creates `<repo>/.gitmate/config.json` if missing.
-
----
+`gitmate config set` creates `<repo>/.gitmate/config.json` if it's missing.
 
 ## Commands
 
@@ -221,11 +207,9 @@ gitmate config set guardrails.highRiskPatterns '["auth/","secrets/"]'
 | `gitmate config set/get/unset` | Edit repo or global config (`--global`) without hand-editing JSON |
 | `gitmate version` | Print version, commit, build date |
 
-Global flags: `--auto` (skip approvals), `--dry-run`, `--base`, `--no-ai`, `-v`.
+Global flags: `--auto` (skip approvals — use sparingly), `--dry-run`, `--base`, `--no-ai`, `-v`.
 
----
-
-## Architecture
+## How it works
 
 ```
 USER COMMAND  ──or──  TUI DASHBOARD (Bubble Tea)
@@ -262,39 +246,39 @@ OBSERVABILITY
   Every step: action, model, tokens, latency, score, user_action
 ```
 
----
+The orchestrator can self-correct. If the evaluator scores a draft below 0.4 it rotates models; between 0.4 and 0.8 it tries to refine; above 0.8 it ships. You see all of this stream live.
 
-## Permission tiers
+## The permission gate
 
-| Tier | Examples | Default behavior |
-|------|----------|------------------|
+Four tiers, escalating:
+
+| Tier | Examples | Default |
+|------|----------|---------|
 | READ | `git_diff`, `git_status`, `parse_conflicts` | auto-allow |
 | ADVISE | `generate_commit`, `explain_conflict`, `explain_diff` | ask once per session |
 | PROPOSE | `create_pr`, `resolve_conflict` | always ask |
 | EXECUTE | `git_commit`, `git_push`, `run_tests`, `write_file` | always ask, every time |
 
-Approval card shortcuts: `y` yes · `a` allow session · `p` preview · `e` edit in `$EDITOR` · `n` no · `?` explain.
+Approval card hotkeys: `y` yes · `a` allow session · `p` preview · `e` edit in `$EDITOR` · `n` no · `?` explain.
 
----
+## What it will never do
 
-## Safety rules (hard-coded, non-configurable)
+These aren't config flags. They're hard-coded.
 
-1. Never auto-apply any AI-generated patch without approval
-2. Never auto-commit after conflict resolution
-3. Always show diff preview before any file write
-4. Always preserve manual escape hatches (user can always abort)
-5. Always label confidence and risk on conflict resolutions
-6. Prefer over-warn over under-warn on risk scoring
-7. Never send secrets or `.env` contents to the LLM (regex redaction in `internal/ai/compress.go` — strips api_key / private key / AWS / Slack / GitHub / OpenAI token patterns)
-8. High-risk file patterns (`auth/`, `schema/`, `migrations/`) always trigger Complex routing
-9. After any AI-applied patch, recommend running tests
-10. Audit log always written, even on user denial
-
----
+1. Auto-apply an AI-generated patch without approval
+2. Auto-commit after a conflict resolution
+3. Skip the diff preview before any file write
+4. Take away your manual escape hatch (you can always abort)
+5. Hide confidence and risk on conflict resolutions
+6. Under-warn when in doubt — over-warning is the default
+7. Send secrets to the LLM. The redactor in `internal/ai/compress.go` strips API keys, private keys, and AWS / Slack / GitHub / OpenAI token patterns before any prompt leaves the box
+8. Treat `auth/`, `schema/`, `migrations/` as routine — those always escalate to Complex routing
+9. Forget to recommend tests after applying a patch
+10. Skip the audit log. Even denials are written
 
 ## Observability
 
-Every AI call + every approval decision lands in `~/.gitmate/ai-log.jsonl`:
+Every AI call and every approval lands in `~/.gitmate/ai-log.jsonl`. Tail it, grep it, ship it to your favorite log eater.
 
 ```json
 {"timestamp":"2026-05-01T12:00:00Z","provider":"anthropic","model":"claude-haiku-4-5-20251001","task":"commit_draft","input_tokens":312,"output_tokens":48,"latency_ms":612,"success":true}
@@ -302,7 +286,7 @@ Every AI call + every approval decision lands in `~/.gitmate/ai-log.jsonl`:
 {"timestamp":"2026-05-01T12:00:08Z","action":"git_commit","user_action":"approved","success":true}
 ```
 
-`gitmate metrics` aggregates the log:
+`gitmate metrics` rolls it up:
 
 ```json
 {
@@ -318,22 +302,19 @@ Every AI call + every approval decision lands in `~/.gitmate/ai-log.jsonl`:
 }
 ```
 
----
+If your approval rate is high and your edit rate is low, gitmate has learned your style. If they're not, the memory layer hasn't caught up yet — give it a week.
 
-## Design decisions
+## Why it's built this way
 
-- **Subprocess Git, never reimplemented** — wraps `git` and `gh` so semantics match what the user already knows.
-- **JSONL logs over stdout** — every AI call is auditable and post-hoc analyzable.
-- **ReAct over chains** — agents can self-correct; chains can't.
-- **Evaluator before approval gate** — catch low-quality output without bothering the user.
-- **Memory injected as context, not training** — repo style is biasing, not constraining.
-- **Lipgloss approval card** — every consequential action is a tiny form, not a free-text Y/n.
-- **Bubble Tea dashboard** — bare `gitmate` opens an interactive console; selecting an action `exec`s a fresh subprocess so stdio stays clean.
-- **TTY-aware** — TUI auto-disables in CI, pipes, and non-terminal contexts; falls back to plain output.
-- **Persistent credentials** — keys stored in `~/.gitmate/credentials.json` (mode `0600`); survive shell restarts; env vars still take precedence.
-- **Single binary, no runtime** — Go, statically linked, no Python / Node / Docker.
-
----
+- **Subprocess `git` and `gh`, never reimplemented.** Semantics match exactly what you already know. No surprises.
+- **JSONL over stdout.** Every AI call is auditable. Post-hoc analysis is grep + jq.
+- **ReAct, not chains.** Agents that can't self-correct are just expensive autocomplete.
+- **Evaluator before approval gate.** Catch slop without bothering you.
+- **Memory as context, not training.** Your style biases the model, it doesn't constrain it.
+- **Approval as a tiny form, not free-text Y/n.** Lipgloss card with structured fields means you read what you're approving.
+- **TTY-aware TUI.** Auto-disables in CI and pipes. Falls back to plain output.
+- **Persistent credentials at `0600`.** Survive shell restarts. Env vars still win.
+- **One static binary.** Go. No Python, no Node, no Docker.
 
 ## Repo layout
 
@@ -370,9 +351,7 @@ gitmate/
 └── go.mod
 ```
 
----
-
-## Build
+## Build from source
 
 ```sh
 git clone https://github.com/krishyogee/gitmate.git
@@ -381,10 +360,8 @@ go build -o gitmate .
 go test ./...
 ```
 
-Release flow: tag a `vX.Y.Z` and push — GitHub Action runs GoReleaser, attaches binaries to a Release, then bump the [Homebrew tap formula](https://github.com/krishyogee/homebrew-tap/blob/main/Formula/gitmate.rb).
-
----
+Releases: tag a `vX.Y.Z`, push it. GoReleaser handles the rest. Then bump the [Homebrew tap formula](https://github.com/krishyogee/homebrew-tap/blob/main/Formula/gitmate.rb).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Use it, fork it, ship it.

@@ -42,17 +42,17 @@ func (s *Stream) Start(label string) {
 		return
 	}
 
-	go s.loop()
+	go s.loop(s.stop, s.stopped)
 }
 
-func (s *Stream) loop() {
+func (s *Stream) loop(stop, stopped chan struct{}) {
 	t := time.NewTicker(80 * time.Millisecond)
 	defer t.Stop()
 	frames := []rune(spinnerFrames)
 	for {
 		select {
-		case <-s.stop:
-			close(s.stopped)
+		case <-stop:
+			close(stopped)
 			return
 		case <-t.C:
 			s.mu.Lock()
