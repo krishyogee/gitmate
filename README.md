@@ -362,6 +362,33 @@ go test ./...
 
 Releases: tag a `vX.Y.Z`, push it. GoReleaser handles the rest. Then bump the [Homebrew tap formula](https://github.com/krishyogee/homebrew-tap/blob/main/Formula/gitmate.rb).
 
+## Trivia: gitmate committed itself
+
+The very first commit on this repo (`d6dc1d1` — `feat(cmd): add initial CLI implementation with agent and AI`) was written and committed **by gitmate**, into gitmate's own repo, before it had ever been released anywhere.
+
+The bootstrap:
+
+```sh
+git init
+go build -o gitmate .
+git add .
+./gitmate ship --no-pr
+```
+
+What ran inside that single command:
+
+```
+[git_diff]        ─→ 42 files, 3750 lines staged → compressed to file-level summary
+[generate_commit] ─→ groq llama-3.3-70b drafted message
+[evaluator]       ─→ score 1.00 (conventional, ≤72 chars, body, non-generic)
+[approval card]   ─→ git_commit · EXECUTE → user approved
+[git_commit]      ─→ root-commit d6dc1d1 created
+```
+
+It worked because `git diff --staged` works without a `HEAD`, and `git commit` happily creates a root-commit when no parent exists. gitmate doesn't assume the repo has any history — it just needs something staged.
+
+Every commit and push to this repo since has gone through `gitmate ship` + `gitmate push`. Self-hosted from commit zero.
+
 ## License
 
 MIT. See [LICENSE](LICENSE). Use it, fork it, ship it.
