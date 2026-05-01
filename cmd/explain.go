@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -21,7 +22,8 @@ var explainCmd = &cobra.Command{
 		}
 		ctx := context.Background()
 		if !app.AI.HasProvider() {
-			return fmt.Errorf("explain requires an AI provider (set ANTHROPIC_API_KEY)")
+			return fmt.Errorf("no AI provider available. Run `gitmate init` to set up, or export %s_API_KEY",
+				strings.ToUpper(app.Cfg.Provider))
 		}
 
 		var diff string

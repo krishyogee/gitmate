@@ -96,11 +96,19 @@ var initCmd = &cobra.Command{
 		}
 		fmt.Printf("✓ wrote %s\n", config.GlobalPath())
 
+		creds, _ := config.LoadCredentials()
+		creds.Set(provider, apiKey)
+		if err := config.SaveCredentials(creds); err != nil {
+			return fmt.Errorf("write credentials: %w", err)
+		}
+		fmt.Printf("✓ wrote %s (mode 0600)\n", config.CredentialsPath())
+
 		exportLine := fmt.Sprintf("export %s=%s", envVar, apiKey)
 		if err := appendIfMissing(shellRC, exportLine); err != nil {
-			return fmt.Errorf("update %s: %w", shellRC, err)
+			fmt.Printf("⚠ couldn't update %s: %v\n", shellRC, err)
+		} else {
+			fmt.Printf("✓ appended export to %s (optional fallback)\n", shellRC)
 		}
-		fmt.Printf("✓ appended export to %s\n", shellRC)
 
 		os.Setenv(envVar, apiKey)
 		fmt.Println()
@@ -113,8 +121,9 @@ var initCmd = &cobra.Command{
 		fmt.Println(string(buf))
 
 		fmt.Println("\nNext:")
-		fmt.Printf("  source %s   # or restart your shell\n", shellRC)
 		fmt.Println("  gitmate ship --no-pr   # try it on a repo with staged changes")
+		fmt.Println()
+		fmt.Printf("(key persisted in %s — works in any shell, no `source` needed)\n", config.CredentialsPath())
 		return nil
 	},
 }

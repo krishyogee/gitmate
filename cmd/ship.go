@@ -54,7 +54,8 @@ var shipCmd = &cobra.Command{
 		fmt.Println(tui.Subtle.Render("─────────────────────────────────────────"))
 
 		if !app.AI.HasProvider() {
-			return fmt.Errorf("no AI provider configured. set ANTHROPIC_API_KEY (or OPENAI_API_KEY / GROQ_API_KEY)")
+			return fmt.Errorf("no AI provider available. Run `gitmate init` to set up, or export %s_API_KEY",
+				strings.ToUpper(app.Cfg.Provider))
 		}
 
 		evaluator := agent.CommitEvaluator{}

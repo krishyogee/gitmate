@@ -50,17 +50,30 @@ func (c *Client) buildProviders() {
 			})
 		}
 	}
-	if k := os.Getenv("ANTHROPIC_API_KEY"); k != "" {
-		add("anthropic", c.cfg.Models.Planning, k, "https://api.anthropic.com/v1/messages")
-		add("anthropic", c.cfg.Models.Drafting, k, "https://api.anthropic.com/v1/messages")
-		add("anthropic", c.cfg.Models.Fallback, k, "https://api.anthropic.com/v1/messages")
+
+	creds, _ := config.LoadCredentials()
+	resolveKey := func(envName, credValue string) string {
+		if v := os.Getenv(envName); v != "" {
+			return v
+		}
+		return credValue
 	}
-	if k := os.Getenv("OPENAI_API_KEY"); k != "" {
-		add("openai", "gpt-4o", k, "https://api.openai.com/v1/chat/completions")
-		add("openai", "gpt-4o-mini", k, "https://api.openai.com/v1/chat/completions")
+
+	anthKey := resolveKey("ANTHROPIC_API_KEY", creds.Anthropic)
+	openaiKey := resolveKey("OPENAI_API_KEY", creds.OpenAI)
+	groqKey := resolveKey("GROQ_API_KEY", creds.Groq)
+
+	if anthKey != "" {
+		add("anthropic", c.cfg.Models.Planning, anthKey, "https://api.anthropic.com/v1/messages")
+		add("anthropic", c.cfg.Models.Drafting, anthKey, "https://api.anthropic.com/v1/messages")
+		add("anthropic", c.cfg.Models.Fallback, anthKey, "https://api.anthropic.com/v1/messages")
 	}
-	if k := os.Getenv("GROQ_API_KEY"); k != "" {
-		add("groq", "llama-3.3-70b-versatile", k, "https://api.groq.com/openai/v1/chat/completions")
+	if openaiKey != "" {
+		add("openai", "gpt-4o", openaiKey, "https://api.openai.com/v1/chat/completions")
+		add("openai", "gpt-4o-mini", openaiKey, "https://api.openai.com/v1/chat/completions")
+	}
+	if groqKey != "" {
+		add("groq", c.cfg.Models.Drafting, groqKey, "https://api.groq.com/openai/v1/chat/completions")
 	}
 }
 
