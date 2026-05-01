@@ -161,6 +161,13 @@ func collectDashboardData() tui.DashboardData {
 			break
 		}
 	}
+	if !data.HasAIKey {
+		if creds, err := config.LoadCredentials(); err == nil {
+			if creds.Anthropic != "" || creds.OpenAI != "" || creds.Groq != "" {
+				data.HasAIKey = true
+			}
+		}
+	}
 	root, err := tools.RepoRoot(ctx)
 	if err != nil || root == "" {
 		data.NotInRepo = true
