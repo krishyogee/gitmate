@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -98,16 +99,26 @@ func runDashboard(parent *cobra.Command) {
 	if len(parts) == 0 {
 		return
 	}
-	for _, c := range parent.Commands() {
-		if c.Name() == parts[0] {
-			c.SetArgs(parts[1:])
-			if err := c.Execute(); err != nil {
-				fmt.Fprintln(os.Stderr, "error:", err)
-			}
-			return
-		}
+
+	selfPath, err := os.Executable()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "could not resolve self path:", err)
+		return
 	}
-	fmt.Printf("Run: %s\n", tui.Cmd.Render("gitmate "+selected))
+	fmt.Printf("\n%s %s\n\n", tui.Subtle.Render("$"), tui.Cmd.Render("gitmate "+selected))
+
+	c := exec.Command(selfPath, parts...)
+	c.Stdin = os.Stdin
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	c.Env = os.Environ()
+	if err := c.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			os.Exit(exitErr.ExitCode())
+		}
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
 }
 
 func collectDashboardData() tui.DashboardData {

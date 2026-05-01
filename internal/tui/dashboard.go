@@ -30,16 +30,15 @@ type Action struct {
 }
 
 var actions = []Action{
-	{"s", "ship", "ship", "Generate commit message + commit + optional PR"},
-	{"y", "sync", "sync", "Fetch + integrate origin/<branch> + base"},
-	{"r", "resolve", "resolve <file>", "Explain + resolve conflicts"},
-	{"c", "check", "check", "Predict merge pain (overlap, hotspots)"},
-	{"t", "status", "status", "Branch state + risk indicator"},
-	{"x", "explain", "explain", "Explain a diff in plain language"},
-	{"p", "push", "push", "Push current branch to origin"},
-	{"m", "metrics", "metrics", "Approval rate + latency + scores"},
-	{"i", "init", "init", "Configure provider + API key"},
-	{"f", "config", "config", "Show effective config"},
+	{"s", "ship", "ship", "commit + optional PR"},
+	{"y", "sync", "sync", "fetch + integrate origin + base"},
+	{"c", "check", "check", "predict merge pain"},
+	{"t", "status", "status", "branch + overlap + risk"},
+	{"x", "explain", "explain", "explain a diff"},
+	{"p", "push", "push", "push branch to origin"},
+	{"m", "metrics", "metrics", "approval rate + latency"},
+	{"i", "init", "init", "configure provider + key"},
+	{"f", "config", "config", "show effective config"},
 }
 
 type dashboardModel struct {
@@ -52,7 +51,7 @@ type dashboardModel struct {
 }
 
 func RunDashboard(data DashboardData) (string, error) {
-	p := tea.NewProgram(dashboardModel{data: data}, tea.WithAltScreen())
+	p := tea.NewProgram(dashboardModel{data: data})
 	out, err := p.Run()
 	if err != nil {
 		return "", err
@@ -103,60 +102,62 @@ func (m dashboardModel) View() string {
 
 	header := Title.Render("gitmate") + " " + Subtle.Render(m.data.Version)
 
-	var status string
+	var statusLine string
 	if m.data.NotInRepo {
-		status = Warn.Render("not in a git repo") + " " + Subtle.Render("— some actions need a repo")
+		statusLine = Warn.Render("not in a git repo")
 	} else {
 		risk := RiskColor(m.data.RiskLevel).Render(m.data.RiskLevel)
-		status = strings.Join([]string{
-			fmt.Sprintf("%s %s", KV.Render("repo"), KVValue.Render(shorten(m.data.RepoRoot, 50))),
-			fmt.Sprintf("%s %s %s", KV.Render("branch"), KVValue.Render(m.data.Branch),
-				Subtle.Render(fmt.Sprintf("(↑%d ↓%d)", m.data.Ahead, m.data.Behind))),
-			fmt.Sprintf("%s %s", KV.Render("base"), KVValue.Render(m.data.Base)),
-			fmt.Sprintf("%s %s   %s %d", KV.Render("risk"), risk, KV.Render("overlap"), m.data.OverlapCount),
-		}, "\n")
+		statusLine = fmt.Sprintf("%s %s %s   %s %s   %s %s   %s %s",
+			KV.Render("branch"), KVValue.Render(m.data.Branch),
+			Subtle.Render(fmt.Sprintf("(↑%d ↓%d)", m.data.Ahead, m.data.Behind)),
+			KV.Render("base"), KVValue.Render(m.data.Base),
+			KV.Render("risk"), risk,
+			KV.Render("overlap"), KVValue.Render(fmt.Sprintf("%d", m.data.OverlapCount)),
+		)
 	}
 
 	keyHint := ""
 	if !m.data.HasAIKey {
-		keyHint = "\n" + Warn.Render("⚠ no AI key in env") + " " + Subtle.Render("— run `gitmate init` or set ANTHROPIC_API_KEY")
+		keyHint = "  " + Warn.Render("⚠ no AI key") + " " + Subtle.Render("· run `gitmate init`")
 	}
-
-	statusBox := Card.Width(64).Render(status + keyHint)
 
 	var menu strings.Builder
-	menu.WriteString(CardTitle.Render("actions") + "\n")
-	for i, a := range actions {
-		key := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render("[" + a.Key + "]")
-		title := a.Title
-		desc := Subtle.Render("· " + a.Desc)
-		row := fmt.Sprintf("%s  %s  %s", key, title, desc)
-		if i == m.cursor {
-			row = MenuActive.Render("▸ " + row)
-		} else {
-			row = MenuItem.Render("  " + row)
+	cols := 2
+	rows := (len(actions) + cols - 1) / cols
+	for r := 0; r < rows; r++ {
+		for c := 0; c < cols; c++ {
+			i := c*rows + r
+			if i >= len(actions) {
+				continue
+			}
+			a := actions[i]
+			key := lipgloss.NewStyle().Bold(true).Foreground(ColorAccent).Render("[" + a.Key + "]")
+			cell := fmt.Sprintf("%s %-15s %s", key, a.Title, Subtle.Render(a.Desc))
+			cell = padToWidth(cell, 38)
+			if i == m.cursor {
+				cell = MenuActive.Render("▸ " + cell)
+			} else {
+				cell = MenuItem.Render("  " + cell)
+			}
+			menu.WriteString(cell)
 		}
-		menu.WriteString(row + "\n")
+		menu.WriteString("\n")
 	}
-	menuBox := Card.Width(64).Render(menu.String())
 
-	hint := Hint.Render("↑/↓ navigate  ·  enter select  ·  type letter shortcut  ·  q quit")
+	hint := Hint.Render("↑↓/jk navigate · enter select · letter shortcut · q quit")
 
 	return lipgloss.JoinVertical(lipgloss.Left,
-		"",
 		header,
-		"",
-		statusBox,
-		"",
-		menuBox,
-		"",
+		statusLine+keyHint,
+		strings.TrimRight(menu.String(), "\n"),
 		hint,
 	)
 }
 
-func shorten(s string, n int) string {
-	if len(s) <= n {
+func padToWidth(s string, w int) string {
+	visible := lipgloss.Width(s)
+	if visible >= w {
 		return s
 	}
-	return "…" + s[len(s)-n+1:]
+	return s + strings.Repeat(" ", w-visible)
 }
