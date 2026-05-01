@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/krishyogee/gitmate/internal/tui"
 )
 
 type UI interface {
@@ -37,10 +39,27 @@ func (t *TerminalUI) Prompt(card Card) (Decision, string, error) {
 	w := t.out()
 	r := t.reader()
 
-	t.renderCard(w, card)
+	if tui.IsTTY() {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, tui.RenderApprovalCard(tui.ApprovalView{
+			Action:      card.Action,
+			Risk:        card.Risk.String(),
+			Description: card.Description,
+			Input:       card.Input,
+			Preview:     card.Preview,
+		}))
+	} else {
+		t.renderCard(w, card)
+	}
 
 	for {
-		fmt.Fprint(w, "\n[y]es  [a]llow session  [p]review  [e]dit  [n]o  [?]explain  > ")
+		if tui.IsTTY() {
+			fmt.Fprintln(w)
+			fmt.Fprintln(w, tui.RenderApprovalPrompt())
+			fmt.Fprint(w, "› ")
+		} else {
+			fmt.Fprint(w, "\n[y]es  [a]llow session  [p]review  [e]dit  [n]o  [?]explain  > ")
+		}
 		line, err := r.ReadString('\n')
 		if err != nil {
 			return DecisionNo, "", err

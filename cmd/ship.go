@@ -13,6 +13,7 @@ import (
 	"github.com/krishyogee/gitmate/internal/ai"
 	"github.com/krishyogee/gitmate/internal/approval"
 	"github.com/krishyogee/gitmate/internal/tools"
+	"github.com/krishyogee/gitmate/internal/tui"
 )
 
 var (
@@ -33,17 +34,24 @@ var shipCmd = &cobra.Command{
 		}
 		ctx := context.Background()
 
+		stream := tui.NewStream()
+
+		stream.Start("reading staged diff")
 		diff, err := tools.GitDiffTool{}.Execute(ctx, "")
 		if err != nil {
+			stream.Fail("git diff failed")
 			return err
 		}
 		if strings.Contains(diff, "(no changes)") {
+			stream.Fail("nothing staged")
 			return fmt.Errorf("nothing staged. Run `git add` first")
 		}
+		stream.Done(fmt.Sprintf("staged diff ready (%d chars)", len(diff)))
 
-		fmt.Println("─── staged diff (compressed if large) ───")
+		fmt.Println()
+		fmt.Println(tui.Subtle.Render("─── staged diff (compressed if large) ───"))
 		fmt.Println(diff)
-		fmt.Println("─────────────────────────────────────────")
+		fmt.Println(tui.Subtle.Render("─────────────────────────────────────────"))
 
 		if !app.AI.HasProvider() {
 			return fmt.Errorf("no AI provider configured. set ANTHROPIC_API_KEY (or OPENAI_API_KEY / GROQ_API_KEY)")
@@ -52,30 +60,36 @@ var shipCmd = &cobra.Command{
 		evaluator := agent.CommitEvaluator{}
 		ctxText := app.Store.RepoContext(app.RepoRoot)
 
+		stream.Start("drafting commit message")
 		userPrompt := fmt.Sprintf("Repo context: %s\n\nStaged diff:\n%s", ctxText, diff)
 		message, err := app.AI.Complete(ctx, ai.CommitDraftSystemPrompt, userPrompt, "commit_draft")
 		if err != nil {
+			stream.Fail("draft failed")
 			return fmt.Errorf("draft commit: %w", err)
 		}
 		message = strings.TrimSpace(message)
 
 		score := evaluator.Score("generate_commit", message)
-		fmt.Printf("\n[evaluator] commit score: %.2f\n", score)
+		stream.Done(fmt.Sprintf("draft scored %s", scoreLabel(score)))
 		app.Logger.LogStep("ship", "generate_commit", message, score)
 
 		if score < evaluator.PassThreshold() {
-			fmt.Println("[evaluator] score below threshold — refining...")
+			stream.Start("refining commit message")
 			refinePrompt := fmt.Sprintf("Diff:\n%s\n\nPrevious draft:\n%s", diff, message)
 			refined, rerr := app.AI.Complete(ctx, ai.CommitRefineSystemPrompt, refinePrompt, "commit_draft")
 			if rerr == nil {
 				refined = strings.TrimSpace(refined)
 				rscore := evaluator.Score("refine_commit", refined)
-				fmt.Printf("[evaluator] refined score: %.2f\n", rscore)
 				app.Logger.LogStep("ship", "refine_commit", refined, rscore)
 				if rscore > score {
 					message = refined
 					score = rscore
+					stream.Done(fmt.Sprintf("refined to %s", scoreLabel(rscore)))
+				} else {
+					stream.Info(fmt.Sprintf("refine kept original (%s vs %s)", scoreLabel(rscore), scoreLabel(score)))
 				}
+			} else {
+				stream.Fail("refine call errored")
 			}
 		}
 
@@ -101,17 +115,20 @@ var shipCmd = &cobra.Command{
 			return nil
 		}
 
+		stream.Start("committing")
 		out, err := tools.GitCommitTool{}.Execute(ctx, message)
 		if err != nil {
+			stream.Fail("git commit failed")
 			return fmt.Errorf("git commit: %w", err)
 		}
-		fmt.Println(out)
+		stream.Done("commit landed")
+		fmt.Println(tui.Subtle.Render(strings.TrimSpace(out)))
 
 		if shipNoPR {
 			return nil
 		}
 
-		fmt.Println("\nCreate PR? (y/N)")
+		fmt.Printf("\n%s ", tui.Hint.Render("Create PR? (y/N)"))
 		r := bufio.NewReader(os.Stdin)
 		ans, _ := r.ReadString('\n')
 		if strings.TrimSpace(strings.ToLower(ans)) != "y" {

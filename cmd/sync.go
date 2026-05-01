@@ -9,6 +9,7 @@ import (
 
 	"github.com/krishyogee/gitmate/internal/approval"
 	"github.com/krishyogee/gitmate/internal/tools"
+	"github.com/krishyogee/gitmate/internal/tui"
 )
 
 var syncCmd = &cobra.Command{
@@ -55,43 +56,46 @@ var syncCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Println("fetching...")
+		stream := tui.NewStream()
+		stream.Start("fetching all remotes")
 		if out, err := (tools.GitFetchTool{}).Execute(ctx, ""); err != nil {
+			stream.Fail("fetch failed")
 			fmt.Println(out)
 			return err
 		}
+		stream.Done("fetch complete")
 
 		// Step 1: integrate origin/<current-branch> if it exists and is behind
 		if remoteRef := "origin/" + branch; remoteExists(ctx, remoteRef) {
 			ahead, behind, _ := compareRefs(ctx, "HEAD", remoteRef)
-			fmt.Printf("\norigin/%s — local ahead=%d behind=%d\n", branch, ahead, behind)
+			stream.Info(fmt.Sprintf("origin/%s — ahead=%d behind=%d", branch, ahead, behind))
 			if behind > 0 {
 				if err := integrate(ctx, app, remoteRef, fmt.Sprintf("origin/%s", branch)); err != nil {
 					return reportConflicts(ctx, app, err)
 				}
-				fmt.Printf("✓ integrated origin/%s\n", branch)
+				stream.Done(fmt.Sprintf("integrated origin/%s", branch))
 			} else {
-				fmt.Println("up-to-date with own remote")
+				stream.Info("up-to-date with own remote")
 			}
 		} else {
-			fmt.Printf("no origin/%s yet (will create on first push)\n", branch)
+			stream.Info(fmt.Sprintf("no origin/%s yet (will create on first push)", branch))
 		}
 
 		// Step 2: integrate base
 		if branch == base {
-			fmt.Println("\non base branch — skipping base integration")
+			stream.Info("on base branch — skipping base integration")
 			return nil
 		}
 		ahead, behind, _ := compareRefs(ctx, "HEAD", base)
-		fmt.Printf("\n%s — local ahead=%d behind=%d\n", base, ahead, behind)
+		stream.Info(fmt.Sprintf("%s — ahead=%d behind=%d", base, ahead, behind))
 		if behind == 0 {
-			fmt.Println("✓ already up-to-date with base")
+			stream.Done("already up-to-date with base")
 			return nil
 		}
 		if err := integrate(ctx, app, base, base); err != nil {
 			return reportConflicts(ctx, app, err)
 		}
-		fmt.Printf("✓ integrated %s\n", base)
+		stream.Done(fmt.Sprintf("integrated %s", base))
 		return nil
 	},
 }

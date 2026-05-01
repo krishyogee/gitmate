@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/krishyogee/gitmate/internal/memory"
 	"github.com/krishyogee/gitmate/internal/observability"
 	"github.com/krishyogee/gitmate/internal/tools"
+	"github.com/krishyogee/gitmate/internal/tui"
 )
 
 var (
@@ -71,9 +73,124 @@ Less Git thinking, more shipping — with approvals where it matters.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if isFirstRun() {
 			printFirstRunBanner()
+			_ = cmd.Help()
+			return
 		}
-		_ = cmd.Help()
+		if !tui.IsTTY() {
+			_ = cmd.Help()
+			return
+		}
+		runDashboard(cmd)
 	},
+}
+
+func runDashboard(parent *cobra.Command) {
+	data := collectDashboardData()
+	selected, err := tui.RunDashboard(data)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "dashboard error:", err)
+		return
+	}
+	if selected == "" {
+		return
+	}
+	parts := strings.Fields(selected)
+	if len(parts) == 0 {
+		return
+	}
+	for _, c := range parent.Commands() {
+		if c.Name() == parts[0] {
+			c.SetArgs(parts[1:])
+			if err := c.Execute(); err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+			}
+			return
+		}
+	}
+	fmt.Printf("Run: %s\n", tui.Cmd.Render("gitmate "+selected))
+}
+
+func collectDashboardData() tui.DashboardData {
+	ctx := context.Background()
+	data := tui.DashboardData{
+		Version:   buildVersion,
+		Base:      "main",
+		RiskLevel: "LOW",
+	}
+	for _, k := range []string{"ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GROQ_API_KEY"} {
+		if os.Getenv(k) != "" {
+			data.HasAIKey = true
+			break
+		}
+	}
+	root, err := tools.RepoRoot(ctx)
+	if err != nil || root == "" {
+		data.NotInRepo = true
+		return data
+	}
+	data.RepoRoot = root
+	cfg, _ := config.Load(root)
+	if cfg != nil {
+		data.Base = cfg.DefaultBase
+	}
+	branch, _ := tools.CurrentBranch(ctx)
+	data.Branch = branch
+	if a, b, err := dashboardAheadBehind(ctx, branch, data.Base); err == nil {
+		data.Ahead = a
+		data.Behind = b
+	}
+	if files, err := dashboardChangedFiles(ctx, "HEAD", data.Base); err == nil {
+		data.ChangedFiles = len(files)
+		if other, err := dashboardChangedFiles(ctx, data.Base, data.Base+"~10"); err == nil {
+			set := map[string]bool{}
+			for _, f := range files {
+				set[f] = true
+			}
+			for _, f := range other {
+				if set[f] {
+					data.OverlapCount++
+				}
+			}
+		}
+	}
+	if data.OverlapCount == 0 {
+		data.RiskLevel = "LOW"
+	} else if data.OverlapCount >= 3 {
+		data.RiskLevel = "HIGH"
+	} else {
+		data.RiskLevel = "MEDIUM"
+	}
+	return data
+}
+
+func dashboardAheadBehind(ctx context.Context, branch, base string) (int, int, error) {
+	out, err := tools.RunGit(ctx, "rev-list", "--left-right", "--count", base+"..."+branch)
+	if err != nil {
+		return 0, 0, err
+	}
+	parts := strings.Fields(strings.TrimSpace(out))
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("unexpected: %s", out)
+	}
+	var b, a int
+	fmt.Sscanf(parts[0], "%d", &b)
+	fmt.Sscanf(parts[1], "%d", &a)
+	return a, b, nil
+}
+
+func dashboardChangedFiles(ctx context.Context, ref, base string) ([]string, error) {
+	out, err := tools.RunGit(ctx, "diff", "--name-only", base+"..."+ref)
+	if err != nil {
+		return nil, err
+	}
+	var files []string
+	for _, l := range strings.Split(out, "\n") {
+		l = strings.TrimSpace(l)
+		if l != "" {
+			files = append(files, l)
+		}
+	}
+	return files, nil
 }
 
 func isFirstRun() bool {
