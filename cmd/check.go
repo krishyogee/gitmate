@@ -23,12 +23,30 @@ var checkCmd = &cobra.Command{
 
 		fmt.Printf("base: %s\n\n", base)
 
+		if _, err := (tools.GitFetchTool{}).Execute(ctx, ""); err != nil {
+			fmt.Printf("warn: fetch failed (%v) — using local refs only\n\n", err)
+		}
+
+		branch, _ := tools.CurrentBranch(ctx)
+		compareBase := base
+		if branch == base {
+			remoteRef := "origin/" + base
+			if _, err := tools.RunGit(ctx, "rev-parse", "--verify", remoteRef); err == nil {
+				compareBase = remoteRef
+				fmt.Printf("on base branch — comparing against %s\n\n", remoteRef)
+			}
+		}
+
+		if ahead, behind, err := compareRefs(ctx, "HEAD", compareBase); err == nil {
+			fmt.Printf("vs %s — ahead=%d behind=%d\n\n", compareBase, ahead, behind)
+		}
+
 		fmt.Println("─── recent activity on base ───")
 		recent, _ := (tools.GitLogTool{}).Execute(ctx, "10")
 		fmt.Println(recent)
 
-		ours, _ := changedFiles(ctx, "HEAD", base)
-		theirs, _ := changedFiles(ctx, base, fmt.Sprintf("%s~10", base))
+		ours, _ := changedFiles(ctx, "HEAD", compareBase)
+		theirs, _ := changedFiles(ctx, compareBase, fmt.Sprintf("%s~10", compareBase))
 		overlap := intersect(ours, theirs)
 
 		fmt.Println("\n─── changed files (yours) ───")
