@@ -11,6 +11,7 @@ import (
 
 	"github.com/krishyogee/gitmate/internal/ai"
 	"github.com/krishyogee/gitmate/internal/approval"
+	"github.com/krishyogee/gitmate/internal/checkpoint"
 	"github.com/krishyogee/gitmate/internal/config"
 	"github.com/krishyogee/gitmate/internal/memory"
 	"github.com/krishyogee/gitmate/internal/observability"
@@ -27,12 +28,13 @@ var (
 )
 
 type App struct {
-	Cfg      *config.Config
-	Logger   *observability.Logger
-	AI       *ai.Client
-	Approval *approval.Manager
-	Store    *memory.Store
-	RepoRoot string
+	Cfg        *config.Config
+	Logger     *observability.Logger
+	AI         *ai.Client
+	Approval   *approval.Manager
+	Store      *memory.Store
+	Checkpoint *checkpoint.Recorder
+	RepoRoot   string
 }
 
 func newApp() (*App, error) {
@@ -53,12 +55,13 @@ func newApp() (*App, error) {
 		// keep client; check via HasProvider where needed
 	}
 	app := &App{
-		Cfg:      cfg,
-		Logger:   logger,
-		AI:       client,
-		Approval: approval.NewManager(logger),
-		Store:    memory.NewStore(),
-		RepoRoot: root,
+		Cfg:        cfg,
+		Logger:     logger,
+		AI:         client,
+		Approval:   approval.NewManager(logger),
+		Store:      memory.NewStore(),
+		Checkpoint: checkpoint.NewRecorder(root),
+		RepoRoot:   root,
 	}
 	if flagAuto {
 		app.Approval.SetAuto(true)
@@ -269,7 +272,7 @@ func Execute() {
 	rootCmd.PersistentFlags().BoolVar(&flagNoAI, "no-ai", false, "disable AI calls (fall back to heuristics)")
 	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false, "verbose output")
 
-	rootCmd.AddCommand(initCmd, shipCmd, syncCmd, checkCmd, resolveCmd, statusCmd, explainCmd, pushCmd, metricsCmd, configCmd, versionCmd)
+	rootCmd.AddCommand(initCmd, shipCmd, syncCmd, checkCmd, resolveCmd, statusCmd, explainCmd, pushCmd, metricsCmd, configCmd, undoCmd, scheduleCmd, versionCmd)
 
 	silenceUsageOnError(rootCmd)
 

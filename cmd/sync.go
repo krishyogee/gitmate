@@ -3,13 +3,20 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/krishyogee/gitmate/internal/approval"
+	"github.com/krishyogee/gitmate/internal/checkpoint"
 	"github.com/krishyogee/gitmate/internal/tools"
 	"github.com/krishyogee/gitmate/internal/tui"
+)
+
+var (
+	syncAll bool
 )
 
 var syncCmd = &cobra.Command{
@@ -17,6 +24,9 @@ var syncCmd = &cobra.Command{
 	Short: "Fetch + integrate origin/<branch> + integrate base — pause on conflict",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if syncAll {
+			return runSyncAll(args)
+		}
 		app, err := newApp()
 		if err != nil {
 			return err
@@ -50,9 +60,15 @@ var syncCmd = &cobra.Command{
 			if dec == approval.DecisionNo {
 				return fmt.Errorf("aborted: dirty working tree")
 			}
+			cp := app.Checkpoint.Begin(ctx, "sync", "stash")
 			if out, err := (tools.GitStashTool{}).Execute(ctx, ""); err != nil {
+				app.Checkpoint.Fail(ctx, cp, err.Error())
 				fmt.Println(out)
 				return err
+			}
+			if cp != nil {
+				cp.StashRef = checkpoint.LatestStashRef(ctx)
+				_ = app.Checkpoint.Commit(ctx, cp)
 			}
 		}
 
@@ -152,6 +168,11 @@ func integrate(ctx context.Context, app *App, target, label string) error {
 	if dec == approval.DecisionNo {
 		return fmt.Errorf("aborted: integrate %s denied", label)
 	}
+	cp := app.Checkpoint.Begin(ctx, "sync", mode)
+	if cp != nil {
+		cp.Args = map[string]string{"target": target, "label": label}
+		app.Checkpoint.CreateBackupRef(ctx, cp)
+	}
 	var args []string
 	if mode == "merge" {
 		args = []string{"merge", "--no-ff", target}
@@ -160,10 +181,70 @@ func integrate(ctx context.Context, app *App, target, label string) error {
 	}
 	out, err := tools.RunGit(ctx, args...)
 	fmt.Println(out)
-	return err
+	if err != nil {
+		app.Checkpoint.Fail(ctx, cp, err.Error())
+		return err
+	}
+	_ = app.Checkpoint.Commit(ctx, cp)
+	return nil
+}
+
+func runSyncAll(args []string) error {
+	app, err := newApp()
+	if err != nil {
+		return err
+	}
+	repos := app.Cfg.Schedule.Repos
+	if len(repos) == 0 {
+		return fmt.Errorf("no repos in schedule.repos config — add with `gitmate schedule add-repo <path>`")
+	}
+	selfPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve self path: %w", err)
+	}
+	var failures []string
+	for _, repo := range repos {
+		if _, err := os.Stat(repo); err != nil {
+			fmt.Printf("→ %s: skip (%v)\n", repo, err)
+			failures = append(failures, repo)
+			continue
+		}
+		fmt.Printf("→ %s\n", repo)
+		childArgs := []string{"sync"}
+		if flagAuto {
+			childArgs = append(childArgs, "--auto")
+		}
+		childArgs = append(childArgs, args...)
+		c := exec.Command(selfPath, childArgs...)
+		c.Dir = repo
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+		c.Env = os.Environ()
+		if err := c.Run(); err != nil {
+			fmt.Printf("✗ %s: %v\n", repo, err)
+			failures = append(failures, repo)
+			if app.Cfg.Schedule.OnConflict == "stop" {
+				return fmt.Errorf("aborted at %s (onConflict=stop)", repo)
+			}
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("%d repo(s) failed", len(failures))
+	}
+	return nil
 }
 
 func reportConflicts(ctx context.Context, app *App, err error) error {
+	if flagAuto && app.Cfg.Schedule.OnConflict == "stash-and-skip" {
+		fmt.Println("conflict in auto mode → aborting + stashing per onConflict=stash-and-skip")
+		if app.Cfg.SyncMode == "merge" {
+			_, _ = tools.RunGit(ctx, "merge", "--abort")
+		} else {
+			_, _ = tools.RunGit(ctx, "rebase", "--abort")
+		}
+		_, _ = tools.RunGit(ctx, "stash", "push", "-u", "-m", "gitmate auto-skip-conflict")
+		return fmt.Errorf("conflicts auto-skipped: %w", err)
+	}
 	fmt.Println("\nconflicts detected. Run `gitmate resolve <file>` per file, then continue:")
 	fmt.Printf("  git %s --continue\n", app.Cfg.SyncMode)
 	conflicted, _ := listConflictedFiles(ctx)
@@ -185,6 +266,10 @@ func isDirty(status string) bool {
 		return true
 	}
 	return false
+}
+
+func init() {
+	syncCmd.Flags().BoolVar(&syncAll, "all", false, "run sync across all repos in schedule.repos config")
 }
 
 func listConflictedFiles(ctx context.Context) ([]string, error) {

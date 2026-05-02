@@ -129,11 +129,20 @@ var resolveCmd = &cobra.Command{
 			return nil
 		}
 
+		cp := app.Checkpoint.Begin(ctx, "resolve", "file_write")
+		if cp != nil {
+			cp.Args = map[string]string{"file": file}
+			if err := app.Checkpoint.BackupFile(cp, file); err != nil {
+				fmt.Println("warning: backup failed:", err)
+			}
+		}
 		input := file + "\n" + content
 		out, err := (tools.ResolveConflictTool{}).Execute(ctx, input)
 		if err != nil {
+			app.Checkpoint.Fail(ctx, cp, err.Error())
 			return err
 		}
+		_ = app.Checkpoint.Commit(ctx, cp)
 		fmt.Println(out)
 
 		if app.Cfg.Guardrails.AlwaysRunTestsAfterConflict && app.Cfg.TestCommand != "" {

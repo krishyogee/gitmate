@@ -43,10 +43,21 @@ var pushCmd = &cobra.Command{
 			fmt.Println("[dry-run] would: git push -u origin", branch)
 			return nil
 		}
+		cp := app.Checkpoint.Begin(ctx, "push", "push")
+		if cp != nil {
+			app.Checkpoint.CaptureRemoteSha(ctx, cp, "origin", branch)
+		}
 		out, err := tools.RunGit(ctx, "push", "-u", "origin", branch)
 		fmt.Println(out)
 		if err != nil {
+			app.Checkpoint.Fail(ctx, cp, err.Error())
 			return err
+		}
+		if cp != nil {
+			if cp.RemoteSHABefore == "" {
+				app.Checkpoint.MarkIrreversible(cp, "no prior remote sha — first push")
+			}
+			_ = app.Checkpoint.Commit(ctx, cp)
 		}
 		app.Logger.LogCommand("push", branch, true, nil)
 		fmt.Println("✓ pushed")

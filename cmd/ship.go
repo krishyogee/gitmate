@@ -115,11 +115,17 @@ var shipCmd = &cobra.Command{
 		}
 
 		stream.Start("committing")
+		cp := app.Checkpoint.Begin(ctx, "ship", "commit")
+		if cp != nil {
+			cp.Args = map[string]string{"message": message}
+		}
 		out, err := tools.GitCommitTool{}.Execute(ctx, message)
 		if err != nil {
+			app.Checkpoint.Fail(ctx, cp, err.Error())
 			stream.Fail("git commit failed")
 			return fmt.Errorf("git commit: %w", err)
 		}
+		_ = app.Checkpoint.Commit(ctx, cp)
 		stream.Done("commit landed")
 		fmt.Println(tui.Subtle.Render(strings.TrimSpace(out)))
 
@@ -182,9 +188,20 @@ func runShipPR(ctx context.Context, app *App, lastCommit string) error {
 	}
 
 	fmt.Println("pushing branch...")
+	pushCp := app.Checkpoint.Begin(ctx, "ship", "push")
+	if pushCp != nil {
+		app.Checkpoint.CaptureRemoteSha(ctx, pushCp, "origin", branch)
+	}
 	if out, err := tools.PushBranch(ctx); err != nil {
+		app.Checkpoint.Fail(ctx, pushCp, err.Error())
 		fmt.Println(out)
 		return err
+	}
+	if pushCp != nil {
+		if pushCp.RemoteSHABefore == "" {
+			app.Checkpoint.MarkIrreversible(pushCp, "no prior remote sha — first push")
+		}
+		_ = app.Checkpoint.Commit(ctx, pushCp)
 	}
 
 	if flagDryRun {
@@ -193,13 +210,35 @@ func runShipPR(ctx context.Context, app *App, lastCommit string) error {
 		return nil
 	}
 
+	prCp := app.Checkpoint.Begin(ctx, "ship", "pr_create")
 	out, err := (tools.CreatePRTool{Base: app.Cfg.DefaultBase}).Execute(ctx, finalInput)
 	if err != nil {
+		app.Checkpoint.Fail(ctx, prCp, err.Error())
 		fmt.Println(out)
 		return err
 	}
+	if prCp != nil {
+		num, url := parsePROutput(out)
+		prCp.PRNumber = num
+		prCp.PRURL = url
+		_ = app.Checkpoint.Commit(ctx, prCp)
+	}
 	fmt.Println(out)
 	return nil
+}
+
+func parsePROutput(s string) (number, url string) {
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "https://") && strings.Contains(line, "/pull/") {
+			url = line
+			if idx := strings.LastIndex(line, "/"); idx >= 0 {
+				number = line[idx+1:]
+			}
+			return
+		}
+	}
+	return
 }
 
 func parsePRDraft(raw string) (string, string) {

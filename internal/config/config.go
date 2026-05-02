@@ -9,16 +9,26 @@ import (
 )
 
 type Config struct {
-	DefaultBase  string            `json:"defaultBase"`
-	SyncMode     string            `json:"syncMode"`
-	AutoStash    bool              `json:"autoStash"`
-	Provider     string            `json:"provider"`
-	Models       Models            `json:"models"`
-	TestCommand  string            `json:"testCommand"`
-	LintCommand  string            `json:"lintCommand"`
-	Approval     ApprovalConfig    `json:"approval"`
-	Guardrails   GuardrailsConfig  `json:"guardrails"`
-	Privacy      PrivacyConfig     `json:"privacy"`
+	DefaultBase string           `json:"defaultBase"`
+	SyncMode    string           `json:"syncMode"`
+	AutoStash   bool             `json:"autoStash"`
+	Provider    string           `json:"provider"`
+	Models      Models           `json:"models"`
+	TestCommand string           `json:"testCommand"`
+	LintCommand string           `json:"lintCommand"`
+	Approval    ApprovalConfig   `json:"approval"`
+	Guardrails  GuardrailsConfig `json:"guardrails"`
+	Privacy     PrivacyConfig    `json:"privacy"`
+	Schedule    ScheduleConfig   `json:"schedule"`
+}
+
+type ScheduleConfig struct {
+	Enabled    bool     `json:"enabled"`
+	Time       string   `json:"time"`
+	Timezone   string   `json:"timezone"`
+	Repos      []string `json:"repos"`
+	OnConflict string   `json:"onConflict"`
+	Notify     string   `json:"notify"`
 }
 
 type Models struct {
@@ -81,6 +91,14 @@ func Default() *Config {
 		Privacy: PrivacyConfig{
 			Mode:          "cloud",
 			RedactSecrets: true,
+		},
+		Schedule: ScheduleConfig{
+			Enabled:    false,
+			Time:       "08:30",
+			Timezone:   "local",
+			Repos:      []string{},
+			OnConflict: "stop",
+			Notify:     "log",
 		},
 	}
 }
