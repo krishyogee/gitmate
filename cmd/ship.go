@@ -130,6 +130,8 @@ var shipCmd = &cobra.Command{
 		fmt.Println(tui.Subtle.Render(strings.TrimSpace(out)))
 
 		if shipNoPR {
+			subject := strings.SplitN(strings.TrimSpace(message), "\n", 2)[0]
+			app.Say(fmt.Sprintf("commit landed with message: %s", subject))
 			return nil
 		}
 
@@ -217,13 +219,14 @@ func runShipPR(ctx context.Context, app *App, lastCommit string) error {
 		fmt.Println(out)
 		return err
 	}
+	num, url := parsePROutput(out)
 	if prCp != nil {
-		num, url := parsePROutput(out)
 		prCp.PRNumber = num
 		prCp.PRURL = url
 		_ = app.Checkpoint.Commit(ctx, prCp)
 	}
 	fmt.Println(out)
+	app.Say(fmt.Sprintf("PR #%s created with title %q, url %s", num, title, url))
 	return nil
 }
 

@@ -65,6 +65,15 @@ var statusCmd = &cobra.Command{
 
 		risk := scoreRisk(overlap, app.Cfg)
 		fmt.Printf("\nrisk: %s\n", risk)
+
+		clean := "dirty working tree"
+		if !hasFileLine {
+			clean = "working tree clean"
+		}
+		app.Say(fmt.Sprintf(
+			"branch=%s base=%s ahead=%d behind=%d %s overlap_files=%d risk=%s",
+			branch, base, ahead, behind, clean, len(overlap), risk,
+		))
 		return nil
 	},
 }

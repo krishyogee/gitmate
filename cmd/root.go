@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -20,11 +21,12 @@ import (
 )
 
 var (
-	flagAuto    bool
-	flagDryRun  bool
-	flagBase    string
-	flagNoAI    bool
-	flagVerbose bool
+	flagAuto     bool
+	flagDryRun   bool
+	flagBase     string
+	flagNoAI     bool
+	flagVerbose  bool
+	flagFriendly bool
 )
 
 type App struct {
@@ -66,7 +68,46 @@ func newApp() (*App, error) {
 	if flagAuto {
 		app.Approval.SetAuto(true)
 	}
+	if flagFriendly {
+		app.Cfg.Output.Friendly = true
+	}
 	return app, nil
+}
+
+// Say prints a friendly summary of the given facts when Output.Friendly is on.
+// It is a no-op otherwise (the raw command output above is assumed to already
+// cover the user). If the AI call fails the raw text is printed as a fallback.
+//
+// Pass concise, factual text — paths, branches, counts, suggested commands —
+// and the AI rephrases into plain easy-to-read prose in Output.Language.
+func (a *App) Say(text string) {
+	if !a.Cfg.Output.Friendly {
+		return
+	}
+	if flagNoAI || a.AI == nil || !a.AI.HasProvider() || !tui.IsTTY() {
+		fmt.Println()
+		fmt.Println(tui.Subtle.Render("─── summary ───"))
+		fmt.Println(text)
+		return
+	}
+	lang := a.Cfg.Output.Language
+	if lang == "" {
+		lang = "english"
+	}
+	system := "You rephrase short CLI tool output into plain, easy-to-understand " + lang + ". " +
+		"Preserve all facts, file paths, commit hashes, branch names, numbers, and command suggestions exactly. " +
+		"Keep code, paths, and identifiers verbatim inside backticks if helpful. " +
+		"Be concise: 1-3 short sentences plus any preserved command lines. No preface, no markdown fences, no apologies."
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+	defer cancel()
+	out, err := a.AI.Complete(ctx, system, text, "commit_draft")
+	fmt.Println()
+	fmt.Println(tui.Subtle.Render("─── summary ───"))
+	if err != nil || strings.TrimSpace(out) == "" {
+		fmt.Println(text)
+		return
+	}
+	fmt.Println(strings.TrimSpace(out))
 }
 
 var rootCmd = &cobra.Command{
@@ -271,6 +312,7 @@ func Execute() {
 	rootCmd.PersistentFlags().StringVar(&flagBase, "base", "", "override default base branch")
 	rootCmd.PersistentFlags().BoolVar(&flagNoAI, "no-ai", false, "disable AI calls (fall back to heuristics)")
 	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false, "verbose output")
+	rootCmd.PersistentFlags().BoolVar(&flagFriendly, "friendly", false, "rephrase output into plain easy-to-read English via AI")
 
 	rootCmd.AddCommand(initCmd, shipCmd, syncCmd, checkCmd, resolveCmd, statusCmd, explainCmd, pushCmd, metricsCmd, configCmd, undoCmd, scheduleCmd, versionCmd)
 

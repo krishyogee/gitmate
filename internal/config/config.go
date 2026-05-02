@@ -20,6 +20,12 @@ type Config struct {
 	Guardrails  GuardrailsConfig `json:"guardrails"`
 	Privacy     PrivacyConfig    `json:"privacy"`
 	Schedule    ScheduleConfig   `json:"schedule"`
+	Output      OutputConfig     `json:"output"`
+}
+
+type OutputConfig struct {
+	Friendly bool   `json:"friendly"`
+	Language string `json:"language"`
 }
 
 type ScheduleConfig struct {
@@ -100,6 +106,10 @@ func Default() *Config {
 			OnConflict: "stop",
 			Notify:     "log",
 		},
+		Output: OutputConfig{
+			Friendly: false,
+			Language: "english",
+		},
 	}
 }
 
@@ -172,6 +182,13 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("GITMATE_DEFAULT_BASE"); v != "" {
 		cfg.DefaultBase = v
+	}
+	if v := os.Getenv("GITMATE_FRIENDLY"); v != "" {
+		lv := strings.ToLower(v)
+		cfg.Output.Friendly = lv == "1" || lv == "true" || lv == "yes" || lv == "on"
+	}
+	if v := os.Getenv("GITMATE_LANGUAGE"); v != "" {
+		cfg.Output.Language = v
 	}
 }
 

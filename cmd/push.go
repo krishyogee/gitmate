@@ -61,6 +61,7 @@ var pushCmd = &cobra.Command{
 		}
 		app.Logger.LogCommand("push", branch, true, nil)
 		fmt.Println("✓ pushed")
+		app.Say(fmt.Sprintf("pushed branch %q to origin successfully", branch))
 		return nil
 	},
 }

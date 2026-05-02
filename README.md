@@ -206,6 +206,28 @@ export GROQ_API_KEY=...        # fallback
 | `GITMATE_TEST_COMMAND` | test command for `run_tests` |
 | `GITMATE_LINT_COMMAND` | lint command for `run_lint` |
 | `GITMATE_DEFAULT_BASE` | default base branch |
+| `GITMATE_FRIENDLY` | `1`/`true` — append AI-rephrased plain-English summary after each command |
+| `GITMATE_LANGUAGE` | language for the friendly summary (default `english`) |
+
+### Friendly mode
+
+Tired of cryptic CLI output? Turn on friendly mode and gitmate appends an AI-rephrased plain-English summary at the end of `status`, `check`, `push`, `sync`, and `ship`.
+
+```sh
+# one-off
+gitmate --friendly status
+
+# persist for this repo
+gitmate config set output.friendly true
+
+# persist globally
+gitmate config set output.friendly true --global
+
+# different language
+gitmate config set output.language spanish
+```
+
+Auto-skips when `--no-ai`, no provider configured, or stdout is piped. AI failure falls back to the raw summary line. Original verbose output above is untouched.
 
 ### Config layering
 
@@ -271,7 +293,7 @@ gitmate config set guardrails.highRiskPatterns '["auth/","secrets/"]'
 | `gitmate schedule install [--print]` / `uninstall` | Manage the OS scheduler entry directly |
 | `gitmate version` | Print version, commit, build date |
 
-Global flags: `--auto` (skip approvals — use sparingly), `--dry-run`, `--base`, `--no-ai`, `-v`.
+Global flags: `--auto` (skip approvals — use sparingly), `--dry-run`, `--base`, `--no-ai`, `--friendly`, `-v`.
 
 ## How it works
 

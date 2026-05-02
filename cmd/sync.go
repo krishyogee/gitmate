@@ -115,12 +115,14 @@ var syncCmd = &cobra.Command{
 		stream.Info(fmt.Sprintf("%s — ahead=%d behind=%d", base, ahead, behind))
 		if behind == 0 {
 			stream.Done("already up-to-date with base")
+			app.Say(fmt.Sprintf("sync done. branch=%s already up-to-date with base=%s", branch, base))
 			return nil
 		}
 		if err := integrate(ctx, app, base, base); err != nil {
 			return reportConflicts(ctx, app, err)
 		}
 		stream.Done(fmt.Sprintf("integrated %s", base))
+		app.Say(fmt.Sprintf("sync done. integrated base=%s into branch=%s using mode=%s", base, branch, app.Cfg.SyncMode))
 		return nil
 	},
 }

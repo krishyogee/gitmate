@@ -62,6 +62,15 @@ var checkCmd = &cobra.Command{
 		risk := scoreRisk(overlap, app.Cfg)
 		fmt.Println("─── risk ───")
 		fmt.Printf("level: %s\n", risk)
+
+		overlapList := "none"
+		if len(overlap) > 0 {
+			overlapList = strings.Join(overlap, ", ")
+		}
+		app.Say(fmt.Sprintf(
+			"merge-risk check vs base=%s. risk=%s. yours_changed=%d files, base_changed=%d files, overlap=%d files (%s)",
+			base, risk, len(ours), len(theirs), len(overlap), overlapList,
+		))
 		return nil
 	},
 }
