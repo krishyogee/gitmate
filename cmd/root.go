@@ -95,9 +95,12 @@ func (a *App) Say(text string) {
 		lang = "english"
 	}
 	system := "You rephrase short CLI tool output into plain, easy-to-understand " + lang + ". " +
-		"Preserve all facts, file paths, commit hashes, branch names, numbers, and command suggestions exactly. " +
-		"Keep code, paths, and identifiers verbatim inside backticks if helpful. " +
-		"Be concise: 1-3 short sentences plus any preserved command lines. No preface, no markdown fences, no apologies."
+		"STRICT RULES:\n" +
+		"- Do NOT invent, suggest, or reference any commands, flags, or subcommands. Only repeat command lines that appear VERBATIM in the input.\n" +
+		"- Do NOT add 'you can run X' or 'try Y' suggestions of your own.\n" +
+		"- Preserve all facts, file paths, commit hashes, branch names, and numbers exactly as given.\n" +
+		"- Keep code, paths, and identifiers verbatim; backticks are fine.\n" +
+		"- Be concise: 1-3 short sentences. No preface, no markdown fences, no apologies, no follow-up suggestions."
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
 	out, err := a.AI.Complete(ctx, system, text, "commit_draft")
