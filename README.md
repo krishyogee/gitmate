@@ -14,11 +14,13 @@ You stay in charge. The agent does the typing.
 
 ## What it actually does
 
-Three things, well:
+Five things, well:
 
 1. **Ships code.** `gitmate ship` reads your diff, drafts a commit message, scores it, refines if weak, asks before committing, optionally opens a PR.
 2. **Resolves merge hell.** `gitmate resolve <file>` walks each conflict block, explains what each side was trying to do, proposes a patch with a confidence score, and waits for you.
 3. **Predicts pain.** `gitmate check` scans hotspots and overlap zones with main so you know what's about to explode before it does.
+4. **Reverses anything it did.** Every mutation (commit, rebase, merge, push, stash, file write, PR) writes a checkpoint. `gitmate undo` rolls it back. Pushed commits use `--force-with-lease` against the recorded prior remote SHA.
+5. **Syncs on a schedule.** `gitmate schedule set --enable --time 08:30` wires launchd (macOS) or a systemd user timer (linux) to run `gitmate sync --auto --all` every morning before you sit down. Auto-installs on enable; auto-uninstalls on disable.
 
 Plus a TUI dashboard if you'd rather click than type.
 
@@ -96,6 +98,62 @@ risk:           Method signatures changed. Run tests before continuing.
 │  why     apply candidate patch to this block   │
 ╰────────────────────────────────────────────────╯
 ```
+
+### `gitmate undo`
+
+```
+gitmate undo list
+ID                              COMMAND   OP           STATUS  INFO
+20260502-060529-883008096ea4    ship      commit       done    92202cf4
+20260502-060410-1f9c01ab33d2    sync      rebase       done    e64f9773→3a363ad9
+20260502-060102-aabbccddeeff    push      push         done    main@e64f9773
+
+gitmate undo
+─── undo ship/commit [20260502-060529-883008096ea4] ───
+  git reset --soft e64f9773
+✓ undone
+```
+
+Undo a pushed commit (rewrites remote with `--force-with-lease`):
+
+```
+gitmate undo --force
+─── undo push/push [20260502-060102-aabbccddeeff] ───
+  git push --force-with-lease=main origin e64f9773:refs/heads/main (rewrites origin/main)
+✓ undone
+```
+
+Each mutation lives in `<repo>/.gitmate/checkpoints.json` (capped at 50). Rebase/merge undo uses a `refs/gitmate/backup/<id>` ref captured before the operation. File writes back up to `.gitmate/backups/<id>/`.
+
+### `gitmate schedule`
+
+```
+gitmate schedule set --time 08:30 --enable
+✓ schedule updated in /Users/you/.gitmate/config.json
+→ wiring OS scheduler...
+✓ launchd plist installed and loaded: /Users/you/Library/LaunchAgents/com.gitmate.daemon.plist
+
+gitmate schedule add-repo .
+✓ added /Users/you/code/api
+
+gitmate schedule status
+─── schedule ───
+enabled:     true
+time:        08:30 (local)
+on-conflict: stop
+notify:      log
+repos:
+  - /Users/you/code/api
+
+OS scheduler:
+  launchd plist installed at /Users/you/Library/LaunchAgents/com.gitmate.daemon.plist
+```
+
+Every morning at 08:30, OS fires `gitmate sync --auto --all`. Each operation produces a checkpoint, so anything the morning sync did can be reversed with `gitmate undo`.
+
+`schedule.onConflict` controls auto-mode behavior on merge conflicts:
+- `stop` (default) — leave conflict markers, exit non-zero, you handle it
+- `stash-and-skip` — abort the rebase/merge, stash the work, skip to next repo
 
 ## Install
 
@@ -205,6 +263,12 @@ gitmate config set guardrails.highRiskPatterns '["auth/","secrets/"]'
 | `gitmate metrics` | Approval rate, edit rate, latency, score distribution |
 | `gitmate config` | Show effective config + paths |
 | `gitmate config set/get/unset` | Edit repo or global config (`--global`) without hand-editing JSON |
+| `gitmate undo [list]` | Reverse the last recorded mutation (commit, rebase, merge, push, stash, file write, PR). `--steps N`, `--id X`, `--dry-run`, `--force` (pushed commits), `--hard` (commit reset mode) |
+| `gitmate schedule` | Status of daily auto-sync + OS scheduler |
+| `gitmate schedule set --enable --time 08:30` | Enable + auto-install launchd / systemd timer for morning sync |
+| `gitmate schedule add-repo <path>` | Add a repo to the scheduled-sync list |
+| `gitmate schedule run-now` | Fire `sync --auto --all` immediately (test) |
+| `gitmate schedule install [--print]` / `uninstall` | Manage the OS scheduler entry directly |
 | `gitmate version` | Print version, commit, build date |
 
 Global flags: `--auto` (skip approvals — use sparingly), `--dry-run`, `--base`, `--no-ai`, `-v`.
@@ -332,11 +396,14 @@ gitmate/
 │   ├── init.go          # interactive setup (provider + key + rc)
 │   ├── metrics.go       # log aggregation
 │   ├── config.go        # show effective config
+│   ├── undo.go          # reverse recorded mutations
+│   ├── schedule.go      # daily auto-sync via launchd / systemd
 │   └── util.go          # helpers (scoreLabel, json)
 ├── internal/
 │   ├── agent/           # ReAct loop: orchestrator, planner, executor, evaluator
 │   ├── ai/              # multi-provider client + prompts + compression + redaction
 │   ├── approval/        # permission tiers + manager + UI
+│   ├── checkpoint/      # per-repo Op store + recorder for undo
 │   ├── conflict/        # parser + classifier + AI explainer
 │   ├── config/          # layered config + credentials.json
 │   ├── memory/          # session (in-process) + store (~/.gitmate/memory.json)
